@@ -1,0 +1,37 @@
+{
+  "name": "sukuna-platform",
+  "version": "2.0.0",
+  "description": "Sukuna SubBot Platform - منصة سوكونا للبوتات الفرعية",
+  "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "Adam (Shadow)",
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "npm:wileys@latest", 
+    "archiver": "^7.0.1",
+    "awesome-phonenumber": "^7.2.0",
+    "body-parser": "^1.20.3",
+    "cfonts": "^3.2.0",
+    "chalk": "^5.3.0",
+    "express": "^4.21.2",
+    "google-libphonenumber": "^3.2.35",
+    "lowdb": "^7.0.1",
+    "node-cache": "^5.1.2",
+    "path": "^0.12.7",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "telegraf": "^4.16.3",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
