@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ربط بالكود | Sukuna Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #dc143c; --secondary: #ffd700; --dark: #0a0a0a; }
+    * { font-family: 'Cairo', sans-serif; }
+    body {
+      background: var(--dark);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a0505 100%);
+    }
+    .pair-card {
+      background: rgba(20,20,20,0.95);
+      border: 2px solid var(--primary);
+      border-radius: 30px;
+      padding: 3rem;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(220,20,60,0.3);
+      backdrop-filter: blur(10px);
+    }
+    .pair-title {
+      font-size: 2.5rem;
+      font-weight: 900;
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .form-control {
+      background: rgba(255,255,255,0.05);
+      border: 2px solid rgba(220,20,60,0.3);
+      color: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      font-size: 1.1rem;
+    }
+    .form-control:focus {
+      background: rgba(255,255,255,0.1);
+      border-color: var(--secondary);
+      box-shadow: 0 0 20px rgba(255,215,0,0.2);
+      color: #fff;
+    }
+    .btn-generate {
+      background: linear-gradient(45deg, var(--primary), #8b0000);
+      border: 2px solid var(--secondary);
+      color: #fff;
+      padding: 15px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      border-radius: 15px;
+      width: 100%;
+      margin-top: 1rem;
+      transition: all 0.3s;
+    }
+    .btn-generate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(220,20,60,0.5);
+      color: var(--secondary);
+    }
+    .btn-generate:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .code-display {
+      background: rgba(0,0,0,0.5);
+      border: 2px dashed var(--secondary);
+      border-radius: 15px;
+      padding: 2rem;
+      margin-top: 2rem;
+      text-align: center;
+      display: none;
+    }
+    .code-display.show { display: block; }
+    .code-value {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 5px;
+      color: var(--secondary);
+      margin: 1rem 0;
+      text-shadow: 0 0 20px rgba(255,215,0,0.5);
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+    .status-waiting { background: rgba(255,215,0,0.2); color: var(--secondary); }
+    .status-connected { background: rgba(0,255,0,0.2); color: #0f0; }
+    .status-error { background: rgba(255,0,0,0.2); color: #f00; }
+    .instructions {
+      background: rgba(220,20,60,0.1);
+      border-radius: 15px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+      border-right: 4px solid var(--primary);
+    }
+    .instructions ol { margin: 0; padding-right: 1.5rem; }
+    .instructions li { margin-bottom: 0.5rem; color: #ccc; }
+    .loading-spinner {
+      display: none;
+      margin: 1rem auto;
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(220,20,60,0.2);
+      border-top-color: var(--secondary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 2rem;
+      color: var(--secondary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="pair-card">
+    <a href="/" class="back-link"><i class="fas fa-arrow-right"></i> العودة للرئيسية</a>
+    
+    <h1 class="pair-title">
+      <i class="fas fa-link"></i> ربط بالكود
+    </h1>
+
+    <form id="pairForm">
+      <label class="form-label">📱 رقم الواتساب (مع كود الدولة)</label>
+      <input 
+        type="text" 
+        id="phoneNumber" 
+        class="form-control" 
+        placeholder="201012345678"
+        required
+      >
+
+      <button type="submit" class="btn btn-generate" id="generateBtn">
+        <i class="fas fa-magic"></i> توليد كود الربط
+      </button>
+    </form>
+
+    <div class="loading-spinner" id="loading"></div>
+
+    <div class="code-display" id="codeDisplay">
+      <div style="color: #ccc;">كود الربط الخاص بك</div>
+      <div class="code-value" id="codeValue"></div>
+      <button class="btn btn-sm btn-outline-warning" onclick="copyCode()">
+        <i class="fas fa-copy"></i> نسخ الكود
+      </button>
+      <div class="status-badge status-waiting" id="statusBadge">
+        <i class="fas fa-clock"></i> في انتظار الربط...
+      </div>
+    </div>
+
+    <div class="instructions" id="instructions" style="display: none;">
+      <h5 style="color: var(--secondary);"><i class="fas fa-info-circle"></i> خطوات الربط:</h5>
+      <ol>
+        <li>افتح <strong>واتساب</strong> على هاتفك</li>
+        <li>اذهب إلى <strong>الإعدادات</strong> ⚙️</li>
+        <li>اضغط على <strong>الأجهزة المرتبطة</strong> 🔗</li>
+        <li>اختر <strong>ربط جهاز</strong></li>
+        <li>اضغط على <strong>الربط برقم الهاتف بدلاً من ذلك</strong></li>
+        <li>أدخل <strong>كود الربط</strong> الظاهر أعلاه</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    let currentSessionId = null;
+    let checkInterval = null;
+
+    document.getElementById('pairForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const number = document.getElementById('phoneNumber').value.trim();
+      if (!number) return;
+
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('loading').style.display = 'block';
+
+      try {
+        const response = await fetch('/api/pair/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          currentSessionId = data.sessionId;
+          document.getElementById('codeValue').textContent = data.code;
+          document.getElementById('codeDisplay').classList.add('show');
+          document.getElementById('instructions').style.display = 'block';
+          startStatusCheck();
+        } else {
+          alert('خطأ: ' + (data.error || 'فشل توليد الكود'));
+        }
+      } catch (e) {
+        alert('خطأ في الاتصال: ' + e.message);
+      } finally {
+        document.getElementById('generateBtn').disabled = false;
+        document.getElementById('loading').style.display = 'none';
+      }
+    });
+
+    function startStatusCheck() {
+      if (checkInterval) clearInterval(checkInterval);
+      checkInterval = setInterval(async () => {
+        if (!currentSessionId) return;
+
+        try {
+          const response = await fetch(`/api/pair/status/${currentSessionId}`);
+          const data = await response.json();
+
+          const badge = document.getElementById('statusBadge');
+          if (data.connected) {
+            badge.className = 'status-badge status-connected';
+            badge.innerHTML = '<i class="fas fa-check-circle"></i> تم الربط بنجاح!';
+            clearInterval(checkInterval);
+            setTimeout(() => {
+              alert('✅ تم ربط البوت بنجاح!\nسيتم إضافته تلقائياً إلى قائمة البوتات الفرعية.');
+              window.location.href = '/dashboard';
+            }, 1000);
+          } else if (data.status === 'expired') {
+            badge.className = 'status-badge status-error';
+            badge.innerHTML = '<i class="fas fa-times-circle"></i> انتهت صلاحية الجلسة';
+            clearInterval(checkInterval);
+          }
+        } catch (e) {
+          console.error('Status check error:', e);
+        }
+      }, 3000);
+    }
+
+    function copyCode() {
+      const code = document.getElementById('codeValue').textContent;
+      navigator.clipboard.writeText(code.replace(/-/g, ''));
+      alert('✅ تم نسخ الكود: ' + code);
+    }
+  </script>
+</body>
+</html>
