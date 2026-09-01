@@ -1,97 +1,72 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🚀 SUKUNA PLATFORM SERVER | خادم منصة سوكونا
+ * 🚀 SUKUNA PLATFORM | منصة تنصيب سوكونا
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
  * 🏷️ الحقوق: ${global.author}
- * 📜 الوصف: خادم ويب احترافي لإدارة بوتات سوكونا الفرعية
+ * 📜 الوصف: منصة ويب لتنصيب بوتات واتساب فرعية
  * ═══════════════════════════════════════════════════════
  */
 
-import './settings.js'
-import express from 'express'
-import bodyParser from 'body-parser'
-import { fileURLToPath } from 'url'
-import path from 'path'
-import fs from 'fs'
-import chalk from 'chalk'
-import cfonts from 'cfonts'
-import pairRouter from './pair.js'
-import qrRouter from './qr.js'
-import SessionMonitor from './lib/session-monitor.js'
+import express from 'express';
+import bodyParser from 'body-parser';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import chalk from 'chalk';
+import { startSessionWatcher } from './lib/session-watcher.js';
 
-const app = express()
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const PORT = global.web.port
+import pairRouter from './routes/pair.js';
+import qrRouter from './routes/qr.js';
 
-// ═══ عرض شعار المنصة ═══
-console.log(chalk.magentaBright('\nStarting Sukuna Platform...'))
-cfonts.say('SUKUNA', {
-  font: 'simple',
-  align: 'left',
-  gradient: ['red', 'yellow']
-})
-cfonts.say('Platform v2.0', {
-  font: 'console',
-  align: 'center',
-  colors: ['cyan', 'magenta']
-})
+const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// ═══ Middleware ═══
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(express.static(path.join(__dirname, 'public')))
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 
-// ═══ Routes ═══
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
-})
+// زيادة حد المستمعين
+import('events').then(events => {
+  events.EventEmitter.defaultMaxListeners = 500;
+});
 
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
-})
+// Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/pair', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'pair.html'))
-})
+// API Routes
+app.use('/api/pair', pairRouter);
+app.use('/api/qr', qrRouter);
 
-app.get('/qr', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'qr.html'))
-})
-
-app.use('/api/pair', pairRouter)
-app.use('/api/qr', qrRouter)
-
-// ═══ API للإحصائيات ═══
-app.get('/api/stats', (req, res) => {
-  const sessionsPath = path.join(process.cwd(), global.sessionsMain, global.sessionsSub)
-  let sessionCount = 0
-
-  try {
-    if (fs.existsSync(sessionsPath)) {
-      sessionCount = fs.readdirSync(sessionsPath).length
-    }
-  } catch {}
-
+// Status endpoint
+app.get('/api/status', (req, res) => {
   res.json({
-    platform: global.platform,
-    sessions: sessionCount,
+    status: 'online',
+    platform: 'Sukuna Platform',
+    version: '2.0.0',
     uptime: process.uptime(),
-    memory: process.memoryUsage()
-  })
-})
+    sessions: global.subBotSessions || {}
+  });
+});
 
-// ═══ بدء الخادم ═══
-app.listen(PORT, global.web.host, async () => {
-  console.log(chalk.cyan('\n╔════════════════════════════════════════╗'))
-  console.log(chalk.cyan('║') + chalk.green(` 🚀 Server running on http://localhost:${PORT}`) + chalk.cyan('║'))
-  console.log(chalk.cyan('╚════════════════════════════════════════╝\n'))
+// Main page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
+// Start server
+app.listen(PORT, async () => {
+  console.log(chalk.cyan('\n╔════════════════════════════════════════╗'));
+  console.log(chalk.cyan('║') + chalk.yellow('🕸 SUKUNA PLATFORM STARTED') + chalk.cyan('║'));
+  console.log(chalk.cyan('╚════════════════════════════════════════╝'));
+  console.log(chalk.green(`✅ Server running on: http://localhost:${PORT}`));
+  console.log(chalk.blue(`📡 API Status: http://localhost:${PORT}/api/status`));
+  
   // بدء مراقب الجلسات
-  const monitor = new SessionMonitor()
-  await monitor.start()
-})
+  await startSessionWatcher().catch(err => {
+    console.error(chalk.red('[WATCHER] فشل بدء مراقب الجلسات:'), err.message);
+  });
+});
 
-export default app
+export default app;
