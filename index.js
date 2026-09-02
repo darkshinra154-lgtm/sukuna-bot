@@ -16,8 +16,8 @@ import path from 'path';
 import chalk from 'chalk';
 import { startSessionWatcher } from './lib/session-watcher.js';
 
-import pairRouter from './routes/pair.js';
-import qrRouter from './routes/qr.js';
+import pairRouter from './1/pair.js';
+import qrRouter from './1/qr.js';
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
