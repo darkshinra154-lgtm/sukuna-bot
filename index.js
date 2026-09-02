@@ -1,134 +1,161 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🌐 SUKUNA PLATFORM | منصة سوكونا الرئيسية
+ * 🚀 SUKUNA PLATFORM SERVER | خادم منصة سوكونا
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
- * 🏷️ الحقوق: Adam (Shadow)
- * 📜 الوصف: السيرفر الرئيسي للموقع + مراقب الجلسات + جسر التليجرام
+ * 📜 الوصف: Express server + Dashboard + APIs
  * ═══════════════════════════════════════════════════════
  */
 
-import express from 'express';
-import bodyParser from 'body-parser';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs';
-import chalk from 'chalk';
-import { startSessionWatcher } from './session-watcher.js';
-import pairRouter from './pair.js';
-import qrRouter from './qr.js';
+import express from 'express'
+import bodyParser from 'body-parser'
+import { fileURLToPath } from 'url'
+import path from 'path'
+import fs from 'fs'
+import config from './config.js'
+import pairRouter from './pair.js'
+import qrRouter from './qr.js'
+import { startTelegramMonitor } from './telegram-monitor.js'
 
-// ═══ إعدادات Express ═══
-const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
+const app = express()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const PORT = config.PORT
+const HOST = config.HOST
 
-// زيادة الحد الأقصى لـ EventListeners
 import('events').then(events => {
-  events.EventEmitter.defaultMaxListeners = 500;
-});
-
-// ═══ إعداد الجلسات ═══
-globalThis.sessions = globalThis.sessions || 'sessions';
-globalThis.subSessionsDir = path.join(process.cwd(), globalThis.sessions, 'session-sub');
-if (!fs.existsSync(globalThis.subSessionsDir)) {
-  fs.mkdirSync(globalThis.subSessionsDir, { recursive: true });
-}
-
-// ═══ توكن التليجرام ═══
-globalThis.telegramToken = process.env.TELEGRAM_TOKEN || globalThis.telegramToken || '';
-globalThis.telegramSessionChannel = process.env.TELEGRAM_SESSION_CHANNEL || globalThis.telegramSessionChannel || '';
+  events.EventEmitter.defaultMaxListeners = 500
+})
 
 // ═══ Middleware ═══
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(express.static(__dirname))
+
+// ═══ إنشاء المجلدات ═══
+const dirs = [
+  config.sessionsDir,
+  config.subSessionsDir,
+  './pair_sessions',
+  './qr_sessions'
+]
+for (const dir of dirs) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+}
 
 // ═══ Routes ═══
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
+  res.sendFile(path.join(__dirname, 'dashboard.html'))
+})
 
-app.get('/pair', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'pair.html'));
-});
+app.get('/connect', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pair.html'))
+})
 
-app.get('/qr', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'qr.html'));
-});
+app.use('/api/pair', pairRouter)
+app.use('/api/qr', qrRouter)
 
-app.get('/sessions', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sessions.html'));
-});
+// ═══ API: Stats ═══
+app.get('/api/stats', (req, res) => {
+  try {
+    const subDir = config.subSessionsDir
+    const sessions = fs.readdirSync(subDir).filter(s =>
+      fs.existsSync(path.join(subDir, s, 'creds.json'))
+    )
 
-// ═══ API Endpoints ═══
-app.use('/api/pair', pairRouter);
-app.use('/api/qr', qrRouter);
+    res.json({
+      success: true,
+      totalSessions: sessions.length,
+      platform: config.platform,
+      uptime: process.uptime()
+    })
+  } catch (e) {
+    res.json({ success: false, error: e.message })
+  }
+})
 
-// جلب قائمة الجلسات النشطة
+// ═══ API: Sessions ═══
 app.get('/api/sessions', (req, res) => {
   try {
-    const sessions = [];
-    if (fs.existsSync(globalThis.subSessionsDir)) {
-      const dirs = fs.readdirSync(globalThis.subSessionsDir);
-      for (const dir of dirs) {
-        const credsPath = path.join(globalThis.subSessionsDir, dir, 'creds.json');
+    const subDir = config.subSessionsDir
+    const sessions = []
+
+    if (fs.existsSync(subDir)) {
+      const list = fs.readdirSync(subDir)
+      for (const dir of list) {
+        const sessionPath = path.join(subDir, dir)
+        const credsPath = path.join(sessionPath, 'creds.json')
+
         if (fs.existsSync(credsPath)) {
           try {
-            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'))
+            const stat = fs.statSync(sessionPath)
             sessions.push({
               number: dir,
-              name: creds.me?.name || 'غير معروف',
-              jid: creds.me?.id || '',
-              createdAt: fs.statSync(credsPath).birthtime.toISOString()
-            });
-          } catch {}
+              name: creds.me?.name || 'Unknown',
+              createdAt: stat.birthtime,
+              filesCount: fs.readdirSync(sessionPath).length
+            })
+          } catch {
+            sessions.push({
+              number: dir,
+              name: 'Unknown',
+              createdAt: new Date(),
+              filesCount: 0
+            })
+          }
         }
       }
     }
-    res.json({ success: true, count: sessions.length, sessions });
-  } catch (e) {
-    res.json({ success: false, error: e.message });
-  }
-});
 
-// إحصائيات المنصة
-app.get('/api/stats', (req, res) => {
-  try {
-    let totalSessions = 0;
-    if (fs.existsSync(globalThis.subSessionsDir)) {
-      totalSessions = fs.readdirSync(globalThis.subSessionsDir).length;
-    }
     res.json({
       success: true,
-      stats: {
-        totalSessions,
-        uptime: process.uptime(),
-        platform: 'Sukuna Platform v2.0',
-        developer: 'Adam (Shadow)'
-      }
-    });
+      sessions,
+      count: sessions.length
+    })
   } catch (e) {
-    res.json({ success: false, error: e.message });
+    res.json({ success: false, error: e.message })
   }
-});
+})
 
-// ═══ بدء السيرفر ═══
-app.listen(PORT, async () => {
-  console.log(chalk.magenta('\n╔════════════════════════════════════════╗'));
-  console.log(chalk.magenta('║') + chalk.cyan('  🕸 SUKUNA PLATFORM v2.0') + chalk.magenta('               ║'));
-  console.log(chalk.magenta('║') + chalk.white(`  🌐 Server: http://localhost:${PORT}`) + chalk.magenta('       ║'));
-  console.log(chalk.magenta('║') + chalk.yellow('  👑 Developer: Adam (Shadow)') + chalk.magenta('         ║'));
-  console.log(chalk.magenta('╚════════════════════════════════════════╝\n'));
-
-  // بدء مراقب الجلسات
+// ═══ API: Delete Session ═══
+app.delete('/api/session/:number', (req, res) => {
   try {
-    await startSessionWatcher();
-  } catch (e) {
-    console.error(chalk.red('[WATCHER] فشل بدء مراقب الجلسات:'), e.message);
-  }
-});
+    const { number } = req.params
+    const cleanNum = String(number).replace(/[^0-9]/g, '')
+    const sessionPath = path.join(config.subSessionsDir, cleanNum)
 
-export default app;
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true })
+      res.json({
+        success: true,
+        message: `تم حذف جلسة ${cleanNum}`
+      })
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'الجلسة غير موجودة'
+      })
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+})
+
+// ═══ Start ═══
+app.listen(PORT, HOST, async () => {
+  console.log('')
+  console.log('╔════════════════════════════════════════════╗')
+  console.log('║    🕸  SUKUNA PLATFORM IS RUNNING!  🕸     ║')
+  console.log('╠════════════════════════════════════════════╣')
+  console.log(`║  🌐 http://${HOST}:${PORT}                  ║`)
+  console.log('║  👑 Adam (Shadow)                          ║')
+  console.log(`║  📦 v${config.platform.version}                          ║`)
+  console.log('╚════════════════════════════════════════════╝')
+  console.log('')
+
+  await startTelegramMonitor()
+})
+
+export default app

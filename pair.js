@@ -1,115 +1,123 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🔢 PAIRING CODE HANDLER | نظام كود الربط
+ * 🔢 PAIR CODE ROUTER | نظام كود الربط السريع
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
- * 📜 الوصف: نظام ربط احترافي باستخدام نفس دوال بوت الواتس
+ * 📜 الوصف: ربط الواتساب بنفس دوال البوت الرئيسي
+ *          وحفظ الجلسة في session-sub/{number}
+ *          ليشغلها conexion.js كـ Sub Bot تلقائياً
  * ═══════════════════════════════════════════════════════
  */
 
-import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import pino from 'pino';
+import express from 'express'
+import fs from 'fs'
+import path from 'path'
+import pino from 'pino'
 import {
   makeWASocket,
   useMultiFileAuthState,
+  delay,
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
-  Browsers,
-  delay
-} from '@whiskeysockets/baileys';
-import pn from 'awesome-phonenumber';
+  Browsers
+} from '@whiskeysockets/baileys'
+import config from './config.js'
 
-const router = express.Router();
+const router = express.Router()
 
-// ═══ دوال مساعدة ═══
-function removeFile(filePath) {
+// ═══ تنظيف رقم الهاتف (نفس دالة البوت الرئيسي) ═══
+function normalizePhone(value = '') {
+  let digits = String(value || '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('00')) digits = digits.slice(2)
+  if (digits.startsWith('0')) {
+    digits = `${config.bot.defaultCountryCode}${digits.slice(1)}`
+  }
+  return digits
+}
+
+// ═══ حذف جلسة ═══
+function removeSession(sessionPath) {
   try {
-    if (!fs.existsSync(filePath)) return false;
-    fs.rmSync(filePath, { recursive: true, force: true });
-    return true;
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true })
+      return true
+    }
+    return false
   } catch (e) {
-    console.error('❌ خطأ في الحذف:', e);
-    return false;
+    console.error('[PAIR] Error removing session:', e.message)
+    return false
   }
 }
 
-function copySessionToSub(tempDir, phoneNumber) {
+// ═══ التحقق من اكتمال الجلسة ═══
+function isSessionComplete(sessionPath) {
   try {
-    const targetDir = path.join(globalThis.subSessionsDir, phoneNumber);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-    // نسخ كل ملفات الجلسة
-    const files = fs.readdirSync(tempDir);
-    for (const file of files) {
-      const src = path.join(tempDir, file);
-      const dst = path.join(targetDir, file);
-      if (fs.statSync(src).isDirectory()) {
-        if (!fs.existsSync(dst)) fs.mkdirSync(dst, { recursive: true });
-        const subFiles = fs.readdirSync(src);
-        for (const subFile of subFiles) {
-          fs.copyFileSync(path.join(src, subFile), path.join(dst, subFile));
-        }
-      } else {
-        fs.copyFileSync(src, dst);
-      }
-    }
-    console.log(chalk?.green?.(`✅ تم حفظ الجلسة في: ${targetDir}`) || `✅ Session saved to: ${targetDir}`);
-    return true;
-  } catch (e) {
-    console.error('❌ خطأ في نسخ الجلسة:', e);
-    return false;
+    const credsPath = path.join(sessionPath, 'creds.json')
+    if (!fs.existsSync(credsPath)) return false
+    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'))
+    return !!(creds && creds.me && creds.me.id)
+  } catch {
+    return false
   }
 }
 
-// ═══ Route Handler ═══
+// ═══ إرسال إشعار للمراقبة ═══
+async function notifySessionReady(number, sessionPath) {
+  try {
+    const monitor = await import('./telegram-monitor.js').catch(() => null)
+    if (monitor?.notifyNewSession) {
+      await monitor.notifyNewSession(number, sessionPath)
+    }
+  } catch (e) {
+    console.log('[PAIR] Telegram notification skipped:', e.message)
+  }
+}
+
+// ═══ المسار الرئيسي ═══
 router.get('/', async (req, res) => {
-  let num = req.query.number;
-  if (!num) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'الرجاء إدخال رقم الواتساب بصيغة دولية بدون +' 
-    });
-  }
+  const rawNumber = req.query.number || ''
+  const number = normalizePhone(rawNumber)
 
-  // تنظيف الرقم
-  num = num.replace(/[^\d]/g, '');
-  
-  // التحقق من صحة الرقم
-  const phone = pn('+' + num);
-  if (!phone.isValid()) {
+  // ═══ التحقق من صحة الرقم ═══
+  if (!number || number.length < 8) {
     return res.status(400).json({
       success: false,
-      error: 'رقم الواتساب غير صحيح. الرجاء إدخال رقم دولي كامل (مثال: 201012345678)'
-    });
+      error: 'invalid_number',
+      message: 'رقم الواتساب غير صحيح. أدخل الرقم بالصيغة الدولية بدون +.'
+    })
   }
 
-  num = phone.getNumber('e164').replace('+', '');
-  
-  // إنشاء مجلد جلسة مؤقت
-  const sessionId = `pair_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  const tempDir = path.join(process.cwd(), 'temp_sessions', sessionId);
-  
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
+  // ═══ مسار الجلسة داخل session-sub ═══
+  const sessionPath = path.join(config.subSessionsDir, number)
+  removeSession(sessionPath)
+  fs.mkdirSync(sessionPath, { recursive: true })
 
-  let responseSent = false;
-  let connectionTimeout;
+  const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
+
+  let socket = null
+  let responseSent = false
+  let connectionTimeout = null
+
+  const safeSend = (data, status = 200) => {
+    if (responseSent) return
+    responseSent = true
+    clearTimeout(connectionTimeout)
+    try {
+      res.status(status).json(data)
+    } catch {}
+  }
 
   try {
-    // إعداد الحالة
-    const { state, saveCreds } = await useMultiFileAuthState(tempDir);
-    const { version } = await fetchLatestBaileysVersion();
+    const { version } = await fetchLatestBaileysVersion()
 
-    // إعداد السوكت بنفس طريقة بوت الواتس
-    const socketConfig = {
+    // ═══ إعدادات socket مطابقة تماماً للبوت الرئيسي ═══
+    socket = makeWASocket({
       version,
       logger: pino({ level: 'silent' }),
-      browser: Browsers.macOS('Chrome'),
+      browser: Browsers.ubuntu('Chrome'),
+      printQRInTerminal: false,
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(
@@ -117,136 +125,134 @@ router.get('/', async (req, res) => {
           pino({ level: 'fatal' }).child({ level: 'fatal' })
         )
       },
-      printQRInTerminal: false,
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
-      defaultQueryTimeoutMs: 60000,
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 30000,
-      retryRequestDelayMs: 250,
-      maxRetries: 5
-    };
+      syncFullHistory: false,
+      defaultQueryTimeoutMs: config.bot.defaultQueryTimeoutMs,
+      connectTimeoutMs: config.bot.connectTimeoutMs,
+      keepAliveIntervalMs: config.bot.keepAliveIntervalMs,
+      maxIdleTimeMs: config.bot.maxIdleTimeMs,
+      retryRequestDelayMs: config.bot.retryRequestDelayMs,
+      maxRetries: config.bot.maxRetries
+    })
 
-    const sock = makeWASocket(socketConfig);
+    socket.ev.on('creds.update', saveCreds)
 
-    // Timeout حماية
-    connectionTimeout = setTimeout(() => {
-      if (!responseSent) {
-        responseSent = true;
-        try { sock.ws?.close?.(); } catch {}
-        res.status(408).json({ 
-          success: false, 
-          error: 'انتهت المهلة. الرجاء المحاولة مرة أخرى.' 
-        });
-        removeFile(tempDir);
-      }
-    }, 60000);
-
-    // معالج الاتصال
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, isNewLogin } = update;
+    socket.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect } = update
+      const statusCode = lastDisconnect?.error?.output?.statusCode
 
       if (connection === 'open') {
-        clearTimeout(connectionTimeout);
-        console.log(`✅ [PAIR] تم الربط بنجاح للرقم: ${num}`);
+        console.log(`[PAIR] ✅ Connected: ${number}`)
 
-        try {
-          // نسخ الجلسة إلى المجلد الدائم
-          const copied = copySessionToSub(tempDir, num);
-          
-          if (!responseSent) {
-            responseSent = true;
-            res.json({
-              success: true,
-              message: 'تم الربط بنجاح!',
-              number: num,
-              sessionSaved: copied
-            });
-          }
+        if (isSessionComplete(sessionPath)) {
+          console.log(`[PAIR] 💾 Session saved at: ${sessionPath}`)
+          await notifySessionReady(number, sessionPath)
 
-          // إغلاق السوكت وتنظيف المجلد المؤقت
-          setTimeout(() => {
-            try { sock.ws?.close?.(); } catch {}
-            removeFile(tempDir);
-          }, 3000);
+          safeSend({
+            success: true,
+            stage: 'connected',
+            number,
+            message: '✅ تم الربط بنجاح! البوت الفرعي جاهز.',
+            sessionPath
+          })
 
-        } catch (error) {
-          console.error('❌ خطأ بعد الاتصال:', error);
-          if (!responseSent) {
-            responseSent = true;
-            res.status(500).json({ 
-              success: false, 
-              error: 'خطأ في حفظ الجلسة' 
-            });
-          }
+          try {
+            socket.ws?.close?.()
+            socket.ev.removeAllListeners()
+          } catch {}
         }
       }
 
       if (connection === 'close') {
-        clearTimeout(connectionTimeout);
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        console.log(`🔌 [PAIR] Connection closed: ${statusCode}`);
-        
         if (statusCode === 401) {
-          console.log('⚠️ تم تسجيل الخروج - يحتاج كود جديد');
-        }
-      }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    // انتظار 3 ثواني ثم طلب الكود
-    await delay(3000);
-
-    if (!sock.authState.creds.registered) {
-      try {
-        let code = await sock.requestPairingCode(num);
-        code = code?.match(/.{1,4}/g)?.join('-') || code;
-        
-        if (!responseSent) {
-          responseSent = true;
-          res.json({
-            success: true,
-            code: code,
-            number: num,
-            message: 'تم إنشاء كود الربط بنجاح'
-          });
-        }
-      } catch (error) {
-        console.error('❌ خطأ في طلب الكود:', error);
-        clearTimeout(connectionTimeout);
-        if (!responseSent) {
-          responseSent = true;
-          res.status(503).json({
+          console.log(`[PAIR] ❌ Logged out: ${number}`)
+          removeSession(sessionPath)
+          safeSend({
             success: false,
-            error: 'فشل في إنشاء كود الربط. تحقق من الرقم وحاول مرة أخرى.'
-          });
+            error: 'logged_out',
+            message: 'تم تسجيل الخروج. حاول مرة أخرى.'
+          }, 401)
         }
-        removeFile(tempDir);
       }
+    })
+
+    // ═══ طلب كود الربط (بعد تأخير قصير) ═══
+    await delay(2000)
+
+    try {
+      let code = await socket.requestPairingCode(number)
+      code = code?.match(/.{1,4}/g)?.join('-') || code
+
+      console.log(`[PAIR] 📱 Code for ${number}: ${code}`)
+
+      safeSend({
+        success: true,
+        stage: 'code_ready',
+        number,
+        code,
+        message: 'تم توليد كود الربط بنجاح.',
+        instructions: [
+          'افتح واتساب على هاتفك',
+          'الإعدادات ⚙️ ← الأجهزة المرتبطة 🔗',
+          'اضغط "ربط جهاز" ← "الربط برقم الهاتف"',
+          'أدخل الكود أعلاه'
+        ]
+      })
+    } catch (pairErr) {
+      console.error('[PAIR] ❌ Failed:', pairErr.message)
+      removeSession(sessionPath)
+      safeSend({
+        success: false,
+        error: 'pairing_failed',
+        message: `فشل توليد الكود: ${pairErr.message}`
+      }, 503)
     }
+
+    // ═══ Timeout ═══
+    connectionTimeout = setTimeout(() => {
+      if (!responseSent) {
+        removeSession(sessionPath)
+        safeSend({
+          success: false,
+          error: 'timeout',
+          message: 'انتهت المهلة. حاول مرة أخرى.'
+        }, 408)
+        try {
+          socket.ws?.close?.()
+          socket.ev.removeAllListeners()
+        } catch {}
+      }
+    }, 90000)
 
   } catch (err) {
-    console.error('❌ خطأ في بدء الجلسة:', err);
-    clearTimeout(connectionTimeout);
-    if (!responseSent) {
-      responseSent = true;
-      res.status(503).json({
-        success: false,
-        error: 'فشل في بدء جلسة الربط'
-      });
-    }
-    removeFile(tempDir);
+    console.error('[PAIR] ❌ Init error:', err.message)
+    removeSession(sessionPath)
+    safeSend({
+      success: false,
+      error: 'init_failed',
+      message: err.message
+    }, 500)
   }
-});
+})
 
-// ═══ معالج الأخطاء العامة ═══
-process.on('uncaughtException', (err) => {
-  const e = String(err);
-  if (e.includes('conflict') || e.includes('not-authorized') || 
-      e.includes('Socket connection timeout') || e.includes('Connection Closed') ||
-      e.includes('Timed Out')) return;
-  console.log('🔥 Caught exception:', err);
-});
+// ═══ Polling endpoint لحالة الاتصال ═══
+router.get('/status/:number', (req, res) => {
+  const number = String(req.params.number).replace(/\D/g, '')
+  const sessionPath = path.join(config.subSessionsDir, number)
 
-export default router;
+  if (isSessionComplete(sessionPath)) {
+    res.json({
+      success: true,
+      status: 'connected',
+      number
+    })
+  } else {
+    res.json({
+      success: false,
+      status: 'pending'
+    })
+  }
+})
+
+export default router

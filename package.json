@@ -1,28 +1,24 @@
 {
   "name": "sukuna-platform",
-  "version": "2.0.0",
-  "description": "Sukuna Bot Platform - Team Dashboard & Sub-Bot Manager",
+  "version": "3.0.0",
+  "description": "Sukuna Bot Platform - Adam (Shadow)",
   "main": "index.js",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "start": "node index.js"
   },
   "author": "Adam (Shadow)",
   "license": "ISC",
   "dependencies": {
     "@whiskeysockets/baileys": "npm:wileys@latest",
-    "awesome-phonenumber": "7.2.0",
     "body-parser": "^1.20.3",
     "express": "^4.21.2",
+    "jimp": "^0.16.13",
     "pino": "9.5.0",
-    "jimp": "^0.16.13", 
     "qrcode": "^1.5.4",
-    "chokidar": "^4.0.3",
-    "telegraf": "^4.16.3",
-    "node-cache": "^5.1.2"
+    "telegraf": "^4.16.3"
   }
 }
