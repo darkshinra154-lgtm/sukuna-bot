@@ -1,28 +1,21 @@
 {
-"name": "knight-bot",
-"version": "1.0.0",
-"description": "Knight Bot - WhatsApp Pair Code Generator",
-"main": "index.js",
-"type": "module",
-"engines": {
-"node": ">=20.0.0"
-},
-"scripts": {
-"start": "node index.js",
-"build": "echo 'No build step required'"
-},
-"author": "Mr Unique Hacker",
-"license": "ISC",
-"dependencies": {
-"@whiskeysockets/baileys": "^6.7.21",
-"archiver": "^8.0.0",
-"awesome-phonenumber": "7.2.0",
-"body-parser": "^1.20.3",
-"express": "^4.21.2",
-"path": "^0.12.7",
-"phone": "3.1.55",
-"pino": "9.5.0",
-"qrcode": "^1.5.4",
-"qrcode-terminal": "^0.12.0"
-}
+  "name": "sukuna-pair-platform",
+  "version": "1.0.0",
+  "description": "Sukuna Bot - Legendary Pairing Platform",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "npm:wileys@latest",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3",
+    "pino": "^8.15.0",
+    "archiver": "^6.0.1",
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0",
+    "awesome-phonenumber": "^6.0.0",
+    "path": "^0.12.7"
+  }
 }
