@@ -1,10 +1,10 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🚀 SUKUNA PLATFORM SERVER | خادم منصة سوكونا
+ * 🚀 SUKUNA PLATFORM | منصة سوكونا الرئيسية
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
- * 📜 الوصف: Express server + Dashboard + APIs
+ * 📜 الوصف: موقع ربط الواتساب + مراقبة الجلسات + إرسالها للتليجرام
  * ═══════════════════════════════════════════════════════
  */
 
@@ -14,147 +14,73 @@ import { fileURLToPath } from 'url'
 import path from 'path'
 import fs from 'fs'
 import config from './config.js'
-import pairRouter from './pair.js'
-import qrRouter from './qr.js'
-import { startTelegramMonitor } from './telegram-monitor.js'
+
+// استيراد الراوترات
+import pairRouter from './routes/pair.js'
+import qrRouter from './routes/qr.js'
+import apiRouter from './routes/api.js'
+import { startTelegramMonitor } from './lib/telegram-monitor.js'
 
 const app = express()
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const PORT = config.PORT
-const HOST = config.HOST
 
+// زيادة حد الـ Event Listeners
 import('events').then(events => {
   events.EventEmitter.defaultMaxListeners = 500
 })
 
-// ═══ Middleware ═══
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(express.static(__dirname))
-
-// ═══ إنشاء المجلدات ═══
+// ═══ إنشاء المجلدات المطلوبة ═══
 const dirs = [
   config.sessionsDir,
   config.subSessionsDir,
-  './pair_sessions',
-  './qr_sessions'
+  config.pairSessionsDir,
+  config.qrSessionsDir
 ]
+
 for (const dir of dirs) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+    console.log(`📁 Created: ${dir}`)
+  }
 }
+
+// ═══ Middleware ═══
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(express.static(path.join(__dirname, 'public')))
 
 // ═══ Routes ═══
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'))
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+})
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
 })
 
 app.get('/connect', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pair.html'))
+  res.sendFile(path.join(__dirname, 'public', 'connect.html'))
 })
 
-app.use('/api/pair', pairRouter)
-app.use('/api/qr', qrRouter)
+app.use('/pair', pairRouter)
+app.use('/qr', qrRouter)
+app.use('/api', apiRouter)
 
-// ═══ API: Stats ═══
-app.get('/api/stats', (req, res) => {
-  try {
-    const subDir = config.subSessionsDir
-    const sessions = fs.readdirSync(subDir).filter(s =>
-      fs.existsSync(path.join(subDir, s, 'creds.json'))
-    )
-
-    res.json({
-      success: true,
-      totalSessions: sessions.length,
-      platform: config.platform,
-      uptime: process.uptime()
-    })
-  } catch (e) {
-    res.json({ success: false, error: e.message })
-  }
-})
-
-// ═══ API: Sessions ═══
-app.get('/api/sessions', (req, res) => {
-  try {
-    const subDir = config.subSessionsDir
-    const sessions = []
-
-    if (fs.existsSync(subDir)) {
-      const list = fs.readdirSync(subDir)
-      for (const dir of list) {
-        const sessionPath = path.join(subDir, dir)
-        const credsPath = path.join(sessionPath, 'creds.json')
-
-        if (fs.existsSync(credsPath)) {
-          try {
-            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'))
-            const stat = fs.statSync(sessionPath)
-            sessions.push({
-              number: dir,
-              name: creds.me?.name || 'Unknown',
-              createdAt: stat.birthtime,
-              filesCount: fs.readdirSync(sessionPath).length
-            })
-          } catch {
-            sessions.push({
-              number: dir,
-              name: 'Unknown',
-              createdAt: new Date(),
-              filesCount: 0
-            })
-          }
-        }
-      }
-    }
-
-    res.json({
-      success: true,
-      sessions,
-      count: sessions.length
-    })
-  } catch (e) {
-    res.json({ success: false, error: e.message })
-  }
-})
-
-// ═══ API: Delete Session ═══
-app.delete('/api/session/:number', (req, res) => {
-  try {
-    const { number } = req.params
-    const cleanNum = String(number).replace(/[^0-9]/g, '')
-    const sessionPath = path.join(config.subSessionsDir, cleanNum)
-
-    if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true })
-      res.json({
-        success: true,
-        message: `تم حذف جلسة ${cleanNum}`
-      })
-    } else {
-      res.status(404).json({
-        success: false,
-        message: 'الجلسة غير موجودة'
-      })
-    }
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-})
-
-// ═══ Start ═══
-app.listen(PORT, HOST, async () => {
-  console.log('')
-  console.log('╔════════════════════════════════════════════╗')
-  console.log('║    🕸  SUKUNA PLATFORM IS RUNNING!  🕸     ║')
-  console.log('╠════════════════════════════════════════════╣')
-  console.log(`║  🌐 http://${HOST}:${PORT}                  ║`)
-  console.log('║  👑 Adam (Shadow)                          ║')
-  console.log(`║  📦 v${config.platform.version}                          ║`)
-  console.log('╚════════════════════════════════════════════╝')
+// ═══ تشغيل السيرفر ═══
+app.listen(PORT, async () => {
+  console.log('╔════════════════════════════════════════╗')
+  console.log('║   🕸 SUKUNA PLATFORM IS RUNNING! 🕸   ║')
+  console.log('╠════════════════════════════════════════╣')
+  console.log(`║   🌐 Server: http://localhost:${PORT}    ║`)
+  console.log(`║   👑 Developer: ${config.platform.developer.padEnd(20)}║`)
+  console.log(`║   🤖 Bot: ${config.platform.botName.padEnd(26)}║`)
+  console.log('╚════════════════════════════════════════╝')
   console.log('')
 
+  // تشغيل بوت مراقبة الجلسات
   await startTelegramMonitor()
 })
 
