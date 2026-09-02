@@ -1,292 +1,101 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SUKUNA | منصة الربط</title>
-<style>
-  :root{
-    --bg:#0b0510;
-    --card:rgba(20,10,30,.75);
-    --red:#ff2d55;
-    --purple:#8b2dff;
-    --text:#f5e9ff;
-    --muted:#b79ac9;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,Arial,sans-serif}
-  body{
-    min-height:100vh;
-    background:
-      radial-gradient(1000px 600px at 80% -10%, rgba(139,45,255,.25), transparent 60%),
-      radial-gradient(900px 500px at 10% 110%, rgba(255,45,85,.20), transparent 60%),
-      var(--bg);
-    color:var(--text);
-    overflow-x:hidden;
-  }
-  .container{max-width:980px;margin:0 auto;padding:24px}
-  header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:18px 22px;border:1px solid rgba(255,255,255,.08);
-    background:var(--card);backdrop-filter:blur(12px);
-    border-radius:18px;
-  }
-  .brand{display:flex;gap:12px;align-items:center}
-  .logo{
-    width:44px;height:44px;border-radius:14px;
-    background:linear-gradient(135deg,var(--red),var(--purple));
-    display:grid;place-items:center;font-weight:900;
-    box-shadow:0 0 24px rgba(255,45,85,.35);
-  }
-  .title{font-size:18px;font-weight:800;letter-spacing:.5px}
-  .sub{font-size:12px;color:var(--muted)}
-  .stats{display:flex;gap:10px;flex-wrap:wrap}
-  .pill{
-    padding:8px 12px;border-radius:999px;font-size:12px;
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(255,255,255,.04);
-    color:var(--muted);
-  }
-  .hero{
-    margin-top:22px;padding:26px;border-radius:22px;
-    border:1px solid rgba(255,255,255,.08);
-    background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-    backdrop-filter:blur(12px);
-    position:relative;overflow:hidden;
-  }
-  .hero:before{
-    content:'';position:absolute;inset:-40%;
-    background:conic-gradient(from 180deg, transparent, rgba(139,45,255,.14), transparent 30%);
-    animation:spin 9s linear infinite;pointer-events:none;
-  }
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .hero h1{font-size:26px}
-  .hero p{color:var(--muted);margin-top:8px;line-height:1.8}
-  .tabs{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-  .tab{
-    padding:10px 14px;border-radius:14px;cursor:pointer;
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(255,255,255,.03);
-    color:var(--muted);font-weight:700;user-select:none;
-    transition:.2s;
-  }
-  .tab.active{
-    color:var(--text);
-    border-color:rgba(255,45,85,.45);
-    background:rgba(255,45,85,.12);
-    box-shadow:0 0 18px rgba(255,45,85,.18);
-  }
-  .panel{
-    margin-top:16px;padding:18px;border-radius:18px;
-    border:1px solid rgba(255,255,255,.08);
-    background:var(--card);backdrop-filter:blur(12px);
-  }
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  input{
-    flex:1;min-width:220px;padding:12px 14px;border-radius:14px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.25);color:var(--text);outline:none;
-  }
-  input:focus{border-color:rgba(139,45,255,.55)}
-  button{
-    padding:12px 16px;border-radius:14px;border:0;cursor:pointer;
-    font-weight:900;color:#fff;
-    background:linear-gradient(135deg,var(--red),var(--purple));
-    box-shadow:0 10px 26px rgba(139,45,255,.25);
-    transition:.2s;
-  }
-  button:hover{transform:translateY(-1px)}
-  button:disabled{opacity:.55;cursor:not-allowed;transform:none}
-  .codebox{
-    margin-top:14px;padding:16px;border-radius:16px;
-    border:1px dashed rgba(255,255,255,.18);
-    background:rgba(0,0,0,.22);
-    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-  }
-  .code{
-    font-size:26px;font-weight:900;letter-spacing:2px;direction:ltr;
-  }
-  .copy{
-    background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.12);
-    box-shadow:none;color:var(--muted);font-weight:800;
-  }
-  .qrwrap{margin-top:14px;display:grid;place-items:center}
-  .qrwrap img{
-    width:260px;height:260px;border-radius:18px;
-    border:1px solid rgba(255,255,255,.14);
-    background:#fff;padding:10px;
-  }
-  .note{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.9}
-  .hidden{display:none}
-  .footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
-  .card{
-    padding:16px;border-radius:18px;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.03);
-  }
-  .card b{display:block;margin-bottom:6px}
-  .card span{color:var(--muted);font-size:12px;line-height:1.8}
-  .loader{
-    width:18px;height:18px;border-radius:50%;
-    border:2px solid rgba(255,255,255,.25);
-    border-top-color:var(--red);
-    animation:spin 1s linear infinite;display:inline-block;margin-left:8px;vertical-align:-4px;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sukuna Bot | منصة التنصيب</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+    body { font-family: 'Tajawal', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    .neon-text { text-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <div class="logo">SU</div>
-        <div>
-          <div class="title">SUKUNA PLATFORM</div>
-          <div class="sub">منصة ربط وتشغيل البوتات الفرعية</div>
-        </div>
-      </div>
-      <div class="stats">
-        <div class="pill" id="uptime">⏱ Uptime: --</div>
-        <div class="pill" id="sessions">📦 الجلسات: --</div>
-      </div>
-    </header>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="glass rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
+    <h1 class="text-4xl font-bold mb-2 neon-text text-purple-400">SUKUNA BOT</h1>
+    <p class="text-gray-400 mb-8">منصة تنصيب البوتات الفرعية</p>
 
-    <div class="hero">
-      <h1>🕸 أهلاً بك في منصة سوكونا</h1>
-      <p>
-        اربط بوتك الفرعي بضغطة واحدة. بعد الربط، الجلسة بتتضغط وبتتبعت تلقائياً
-        لقناة الجلسات، وبوت سوكونا الرئيسي بيستلمها ويشغلها على المنصة فوراً.
-      </p>
+    <div class="flex mb-6 bg-slate-800 rounded-lg p-1">
+      <button id="pairTab" class="flex-1 py-2 rounded-md bg-purple-600 text-white transition">كود ربط</button>
+      <button id="qrTab" class="flex-1 py-2 rounded-md text-gray-400 transition">QR Code</button>
+    </div>
 
-      <div class="tabs">
-        <div class="tab active" data-tab="pair">🔢 Pair Code</div>
-        <div class="tab" data-tab="qr">🔳 QR Code</div>
-        <div class="tab" data-tab="info">ℹ️ الشرح</div>
+    <div id="pairSection">
+      <input type="tel" id="phone" placeholder="رقم الواتساب بصيغة دولية (2010...)" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 mb-4 focus:outline-none focus:border-purple-500 text-center">
+      <button onclick="getPairCode()" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 py-3 rounded-lg font-bold hover:opacity-90 transition">توليد الكود</button>
+      <div id="pairResult" class="mt-6 hidden">
+        <p class="text-gray-400 text-sm">كود الربط الخاص بك:</p>
+        <div class="text-3xl font-mono font-bold text-yellow-400 tracking-widest mt-2" id="codeDisplay"></div>
+        <p class="text-xs text-gray-500 mt-2">أدخل الكود في واتساب > الأجهزة المرتبطة > ربط برقم الهاتف</p>
       </div>
     </div>
 
-    <div class="panel" id="panel-pair">
-      <div class="row">
-        <input id="phone" type="text" placeholder="اكتب رقم الواتساب بصيغة دولية بدون + مثال: 201012345678" />
-        <button id="genPair">توليد الكود</button>
-      </div>
-      <div class="codebox hidden" id="pairBox">
-        <div class="code" id="pairCode">----</div>
-        <button class="copy" id="copyCode">نسخ</button>
-      </div>
-      <div class="note">
-        1️⃣ افتح واتساب ⚙️ ← الأجهزة المرتبطة 🔗<br>
-        2️⃣ اضغط "الربط برقم الهاتف بدلاً من الكود"<br>
-        3️⃣ أدخل الكود اللي ظهر فوق
+    <div id="qrSection" class="hidden">
+      <button onclick="getQRCode()" class="w-full bg-gradient-to-r from-green-600 to-teal-600 py-3 rounded-lg font-bold hover:opacity-90 transition">عرض كود QR</button>
+      <div id="qrResult" class="mt-6 hidden">
+        <img id="qrImage" src="" alt="QR Code" class="mx-auto rounded-lg border-4 border-slate-700">
+        <p class="text-xs text-gray-500 mt-2">امسح الكود بكاميرا واتساب</p>
       </div>
     </div>
 
-    <div class="panel hidden" id="panel-qr">
-      <div class="row">
-        <button id="genQr">توليد كود QR</button>
-      </div>
-      <div class="qrwrap hidden" id="qrBox">
-        <img id="qrImg" alt="QR" />
-      </div>
-      <div class="note">
-        1️⃣ افتح واتساب ⚙️ ← الأجهزة المرتبطة 🔗<br>
-        2️⃣ اضغط "ربط جهاز" وامسح الكود اللي ظهر
-      </div>
-    </div>
-
-    <div class="panel hidden" id="panel-info">
-      <div class="grid">
-        <div class="card"><b>🔢 Pair Code</b><span>مناسب لو عايز تربط برقم الهاتف، بيظهرلك كود 8 أرقام تدخله في واتساب.</span></div>
-        <div class="card"><b>🔳 QR Code</b><span>مناسب لو عايز تمسح الكود بالكاميرا مباشرة.</span></div>
-        <div class="card"><b>📦 النقل التلقائي</b><span>بعد الربط الجلسة بتتضغط وبتتبعت للقناة، وبوت سوكونا بيستلمها ويشغلها فوراً.</span></div>
-        <div class="card"><b>⚠️ أمان</b><span>ملف الجلسة = مفتاح حسابك. متشاركوش مع أي حد.</span></div>
-      </div>
-    </div>
-
-    <div class="footer">© SUKUNA — Developed by Adam (Shadow)</div>
+    <div id="status" class="mt-6 text-sm text-purple-300"></div>
   </div>
 
-<script>
-const $ = (id) => document.getElementById(id)
+  <script>
+    const pairTab = document.getElementById('pairTab');
+    const qrTab = document.getElementById('qrTab');
+    const pairSection = document.getElementById('pairSection');
+    const qrSection = document.getElementById('qrSection');
 
-// Tabs
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'))
-    t.classList.add('active')
-    const tab = t.dataset.tab
-    $('panel-pair').classList.toggle('hidden', tab!=='pair')
-    $('panel-qr').classList.toggle('hidden', tab!=='qr')
-    $('panel-info').classList.toggle('hidden', tab!=='info')
-  })
-})
+    pairTab.onclick = () => {
+      pairSection.classList.remove('hidden');
+      qrSection.classList.add('hidden');
+      pairTab.className = 'flex-1 py-2 rounded-md bg-purple-600 text-white transition';
+      qrTab.className = 'flex-1 py-2 rounded-md text-gray-400 transition';
+    };
 
-// Status dashboard
-async function loadStatus(){
-  try{
-    const r = await fetch('/status')
-    const j = await r.json()
-    $('uptime').textContent = '⏱ Uptime: ' + j.uptime + 's'
-    $('sessions').textContent = '📦 الجلسات: ' + j.sessions
-  }catch{}
-}
-loadStatus()
-setInterval(loadStatus, 15000)
+    qrTab.onclick = () => {
+      qrSection.classList.remove('hidden');
+      pairSection.classList.add('hidden');
+      qrTab.className = 'flex-1 py-2 rounded-md bg-purple-600 text-white transition';
+      pairTab.className = 'flex-1 py-2 rounded-md text-gray-400 transition';
+    };
 
-// Pair
-$('genPair').addEventListener('click', async ()=>{
-  const num = $('phone').value.replace(/[^0-9]/g,'')
-  if(!num){ alert('اكتب رقم الهاتف أولاً'); return }
-  const btn = $('genPair')
-  btn.disabled = true
-  btn.innerHTML = 'جاري التوليد <span class="loader"></span>'
-  $('pairBox').classList.add('hidden')
-  try{
-    const r = await fetch('/pair?number=' + encodeURIComponent(num))
-    const j = await r.json()
-    if(j.code){
-      $('pairCode').textContent = j.code
-      $('pairBox').classList.remove('hidden')
-    }else{
-      alert(j.code || 'حصل خطأ')
+    async function getPairCode() {
+      const phone = document.getElementById('phone').value;
+      if (!phone) return alert('اكتب رقم الواتساب');
+      document.getElementById('status').innerText = '⏳ جاري توليد الكود...';
+      try {
+        const res = await fetch(`/pair?number=${phone}`);
+        const data = await res.json();
+        if (data.code && data.code !== 'SUCCESS') {
+          document.getElementById('codeDisplay').innerText = data.code;
+          document.getElementById('pairResult').classList.remove('hidden');
+          document.getElementById('status').innerText = '✅ تم توليد الكود';
+        } else if (data.code === 'SUCCESS') {
+          document.getElementById('status').innerText = '✅ تم الربط بنجاح وجاري إرسال الجلسة للبوت الرئيسي';
+        }
+      } catch (e) {
+        document.getElementById('status').innerText = '❌ حدث خطأ';
+      }
     }
-  }catch(e){
-    alert('خطأ في الاتصال بالسيرفر')
-  }
-  btn.disabled = false
-  btn.textContent = 'توليد الكود'
-})
 
-$('copyCode').addEventListener('click', async ()=>{
-  const code = $('pairCode').textContent
-  try{
-    await navigator.clipboard.writeText(code)
-    $('copyCode').textContent = 'تم النسخ ✅'
-    setTimeout(()=> $('copyCode').textContent = 'نسخ', 1500)
-  }catch{}
-})
-
-// QR
-$('genQr').addEventListener('click', async ()=>{
-  const btn = $('genQr')
-  btn.disabled = true
-  btn.innerHTML = 'جاري التوليد <span class="loader"></span>'
-  $('qrBox').classList.add('hidden')
-  try{
-    const r = await fetch('/qr')
-    const j = await r.json()
-    if(j.qr){
-      $('qrImg').src = j.qr
-      $('qrBox').classList.remove('hidden')
-    }else{
-      alert(j.code || 'حصل خطأ')
+    async function getQRCode() {
+      document.getElementById('status').innerText = '⏳ جاري توليد كود QR...';
+      try {
+        const res = await fetch('/qr');
+        const data = await res.json();
+        if (data.qr) {
+          document.getElementById('qrImage').src = data.qr;
+          document.getElementById('qrResult').classList.remove('hidden');
+          document.getElementById('status').innerText = '✅ امسح الكود الآن';
+        }
+      } catch (e) {
+        document.getElementById('status').innerText = '❌ حدث خطأ';
+      }
     }
-  }catch(e){
-    alert('خطأ في الاتصال بالسيرفر')
-  }
-  btn.disabled = false
-  btn.textContent = 'توليد كود QR'
-})
-</script>
+  </script>
 </body>
 </html>
