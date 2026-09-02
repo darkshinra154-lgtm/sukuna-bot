@@ -1,87 +1,65 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🚀 SUKUNA PLATFORM | منصة سوكونا الرئيسية
+ * 🚀 SUKUNA PLATFORM | منصة سوكونا
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
- * 📜 الوصف: موقع ربط الواتساب + مراقبة الجلسات + إرسالها للتليجرام
+ * 📜 الوصف: سيرفر الموقع + لوحة التحكم + حالة المنصة
  * ═══════════════════════════════════════════════════════
  */
 
+import './settings.js'
 import express from 'express'
 import bodyParser from 'body-parser'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import fs from 'fs'
-import config from './config.js'
-
-// استيراد الراوترات
-import pairRouter from './routes/pair.js'
-import qrRouter from './routes/qr.js'
-import apiRouter from './routes/api.js'
-import { startTelegramMonitor } from './lib/telegram-monitor.js'
+import pairRouter from './pair.js'
+import qrRouter from './qr.js'
+import { startSessionWatcher } from './lib/session-manager.js'
 
 const app = express()
-
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const PORT = config.PORT
+const PORT = process.env.PORT || 8000
 
-// زيادة حد الـ Event Listeners
 import('events').then(events => {
   events.EventEmitter.defaultMaxListeners = 500
 })
 
-// ═══ إنشاء المجلدات المطلوبة ═══
-const dirs = [
-  config.sessionsDir,
-  config.subSessionsDir,
-  config.pairSessionsDir,
-  config.qrSessionsDir
-]
-
-for (const dir of dirs) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-    console.log(`📁 Created: ${dir}`)
-  }
-}
-
-// ═══ Middleware ═══
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, 'public')))
 
-// ═══ Routes ═══
+// الصفحة الرئيسية
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
 
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'))
-})
-
-app.get('/connect', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'connect.html'))
+// حالة المنصة (للداشبورد)
+app.get('/status', (req, res) => {
+  const dir = path.join(__dirname, global.subSessionsDir)
+  let sessions = 0
+  try {
+    sessions = fs.readdirSync(dir).filter(f => {
+      return fs.statSync(path.join(dir, f)).isDirectory()
+    }).length
+  } catch {}
+  res.json({
+    uptime: Math.floor(process.uptime()),
+    sessions,
+    bot: global.botname
+  })
 })
 
 app.use('/pair', pairRouter)
 app.use('/qr', qrRouter)
-app.use('/api', apiRouter)
 
-// ═══ تشغيل السيرفر ═══
-app.listen(PORT, async () => {
-  console.log('╔════════════════════════════════════════╗')
-  console.log('║   🕸 SUKUNA PLATFORM IS RUNNING! 🕸   ║')
-  console.log('╠════════════════════════════════════════╣')
-  console.log(`║   🌐 Server: http://localhost:${PORT}    ║`)
-  console.log(`║   👑 Developer: ${config.platform.developer.padEnd(20)}║`)
-  console.log(`║   🤖 Bot: ${config.platform.botName.padEnd(26)}║`)
-  console.log('╚════════════════════════════════════════╝')
-  console.log('')
+// تشغيل المراقب التلقائي
+startSessionWatcher()
 
-  // تشغيل بوت مراقبة الجلسات
-  await startTelegramMonitor()
+app.listen(PORT, () => {
+  console.log(`🕸 منصة سوكونا شغالة على البورت ${PORT}`)
 })
 
 export default app
