@@ -1,11 +1,11 @@
 /**
  * ═══════════════════════════════════════════════════════
- * 🚀 SUKUNA PLATFORM | منصة تنصيب سوكونا
+ * 🌐 SUKUNA PLATFORM | منصة سوكونا الرئيسية
  * ═══════════════════════════════════════════════════════
  * 👑 المطور: آدم (شادو) | Adam (Shadow)
  * 🤖 البوت: سوكونا | Sukuna
- * 🏷️ الحقوق: ${global.author}
- * 📜 الوصف: منصة ويب لتنصيب بوتات واتساب فرعية
+ * 🏷️ الحقوق: Adam (Shadow)
+ * 📜 الوصف: السيرفر الرئيسي للموقع + مراقب الجلسات + جسر التليجرام
  * ═══════════════════════════════════════════════════════
  */
 
@@ -13,60 +13,122 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import chalk from 'chalk';
-import { startSessionWatcher } from './lib/session-watcher.js';
+import { startSessionWatcher } from './session-watcher.js';
+import pairRouter from './pair.js';
+import qrRouter from './qr.js';
 
-import pairRouter from './1/pair.js';
-import qrRouter from './1/qr.js';
-
+// ═══ إعدادات Express ═══
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 
-// زيادة حد المستمعين
+// زيادة الحد الأقصى لـ EventListeners
 import('events').then(events => {
   events.EventEmitter.defaultMaxListeners = 500;
 });
 
-// Middleware
+// ═══ إعداد الجلسات ═══
+globalThis.sessions = globalThis.sessions || 'sessions';
+globalThis.subSessionsDir = path.join(process.cwd(), globalThis.sessions, 'session-sub');
+if (!fs.existsSync(globalThis.subSessionsDir)) {
+  fs.mkdirSync(globalThis.subSessionsDir, { recursive: true });
+}
+
+// ═══ توكن التليجرام ═══
+globalThis.telegramToken = process.env.TELEGRAM_TOKEN || globalThis.telegramToken || '';
+globalThis.telegramSessionChannel = process.env.TELEGRAM_SESSION_CHANNEL || globalThis.telegramSessionChannel || '';
+
+// ═══ Middleware ═══
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API Routes
+// ═══ Routes ═══
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/pair', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pair.html'));
+});
+
+app.get('/qr', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'qr.html'));
+});
+
+app.get('/sessions', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sessions.html'));
+});
+
+// ═══ API Endpoints ═══
 app.use('/api/pair', pairRouter);
 app.use('/api/qr', qrRouter);
 
-// Status endpoint
-app.get('/api/status', (req, res) => {
-  res.json({
-    status: 'online',
-    platform: 'Sukuna Platform',
-    version: '2.0.0',
-    uptime: process.uptime(),
-    sessions: global.subBotSessions || {}
-  });
+// جلب قائمة الجلسات النشطة
+app.get('/api/sessions', (req, res) => {
+  try {
+    const sessions = [];
+    if (fs.existsSync(globalThis.subSessionsDir)) {
+      const dirs = fs.readdirSync(globalThis.subSessionsDir);
+      for (const dir of dirs) {
+        const credsPath = path.join(globalThis.subSessionsDir, dir, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+          try {
+            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+            sessions.push({
+              number: dir,
+              name: creds.me?.name || 'غير معروف',
+              jid: creds.me?.id || '',
+              createdAt: fs.statSync(credsPath).birthtime.toISOString()
+            });
+          } catch {}
+        }
+      }
+    }
+    res.json({ success: true, count: sessions.length, sessions });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
 });
 
-// Main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// إحصائيات المنصة
+app.get('/api/stats', (req, res) => {
+  try {
+    let totalSessions = 0;
+    if (fs.existsSync(globalThis.subSessionsDir)) {
+      totalSessions = fs.readdirSync(globalThis.subSessionsDir).length;
+    }
+    res.json({
+      success: true,
+      stats: {
+        totalSessions,
+        uptime: process.uptime(),
+        platform: 'Sukuna Platform v2.0',
+        developer: 'Adam (Shadow)'
+      }
+    });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
 });
 
-// Start server
+// ═══ بدء السيرفر ═══
 app.listen(PORT, async () => {
-  console.log(chalk.cyan('\n╔════════════════════════════════════════╗'));
-  console.log(chalk.cyan('║') + chalk.yellow('🕸 SUKUNA PLATFORM STARTED') + chalk.cyan('║'));
-  console.log(chalk.cyan('╚════════════════════════════════════════╝'));
-  console.log(chalk.green(`✅ Server running on: http://localhost:${PORT}`));
-  console.log(chalk.blue(`📡 API Status: http://localhost:${PORT}/api/status`));
-  
+  console.log(chalk.magenta('\n╔════════════════════════════════════════╗'));
+  console.log(chalk.magenta('║') + chalk.cyan('  🕸 SUKUNA PLATFORM v2.0') + chalk.magenta('               ║'));
+  console.log(chalk.magenta('║') + chalk.white(`  🌐 Server: http://localhost:${PORT}`) + chalk.magenta('       ║'));
+  console.log(chalk.magenta('║') + chalk.yellow('  👑 Developer: Adam (Shadow)') + chalk.magenta('         ║'));
+  console.log(chalk.magenta('╚════════════════════════════════════════╝\n'));
+
   // بدء مراقب الجلسات
-  await startSessionWatcher().catch(err => {
-    console.error(chalk.red('[WATCHER] فشل بدء مراقب الجلسات:'), err.message);
-  });
+  try {
+    await startSessionWatcher();
+  } catch (e) {
+    console.error(chalk.red('[WATCHER] فشل بدء مراقب الجلسات:'), e.message);
+  }
 });
 
 export default app;
